@@ -1,0 +1,290 @@
+import tensorflow as tf
+from tensorflow.keras.layers import Dense, Activation, LeakyReLU
+from tensorflow.keras.models import Sequential
+from tensorflow.keras.models import load_model
+from tensorflow.keras import initializers
+from tensorflow.keras import optimizers
+import numpy as np
+from numpy import asfarray
+from numpy import asarray_chkfinite
+import datetime
+from scipy.optimize import rosen, differential_evolution
+from random import random
+from random import seed
+import time
+import math
+import tensorflow.keras.backend as K
+from tensorflow.keras.models import model_from_json
+from tensorflow.keras.models import model_from_yaml
+from scipy.spatial import distance
+
+
+class Ship:
+    def __init__(self, dx, dy):
+        self.vupdown = 0
+        self.vleftright = 0
+        self.pupdown = 0
+        self.pleftright = 0
+        self.dupdown = dy
+        self.dleftright = dx
+        self.model = Sequential()
+        acti = tf.keras.layers.ReLU(max_value=None, negative_slope=.3,
+                                    threshold=0)
+        acti2 = 'softmax'
+        self.model.add(
+            Dense(6, input_dim=3, activation='linear',
+                  kernel_initializer=tf.keras.initializers.RandomUniform(minval=-1, maxval=1, seed=0)))
+        self.model.add(Dense(4, activation='linear',
+                             kernel_initializer=tf.keras.initializers.RandomUniform(minval=-1, maxval=1, seed=5)))
+        self.model.add(Dense(2, activation='linear',
+                             kernel_initializer=tf.keras.initializers.RandomUniform(minval=-1, maxval=1, seed=5)))
+        pointless = 1
+
+    def accelerate(self, leftright, updown):
+        self.vupdown = self.vupdown + updown
+        self.vleftright = self.vleftright + leftright
+
+    def updateposition(self):
+        self.pupdown = self.pupdown + self.vupdown
+        self.pleftright = self.pleftright + self.vleftright
+
+    def printposition(self):
+        print("x coordinate: " + str(str(self.pleftright)) + "   " + "y coordinate: " + str(str(self.pupdown)))
+
+    def printdata(self):
+        print("x coordinate: " + str(str(self.pleftright)) + "   " + "x velocity: " + str(str(self.vleftright)))
+
+    def update(self):
+        temp1 = np.array(
+            [[self.vleftright, self.pleftright, self.dleftright]])
+        temp2 = self.model.predict(temp1)
+        a = temp2[0, 0]
+        b = temp2[0, 1]
+        a = float(a)
+        b = float(b)
+        c = a + b
+        d = 0
+        boo = (a - b) > 0
+        boo2 = (b - a) > 0
+        if boo:
+            d = (a / c)
+        elif boo2:
+            d = (b / c) * -1
+
+        self.accelerate(d, 0)
+        self.updateposition()
+        # self.printposition()
+
+    def updateiter(self, iterations):
+        tally = 0
+        for i in range(iterations):
+            self.update()
+            if abs(self.dleftright - self.pleftright) > 1:
+                tally = tally + 1
+        return tally
+
+    def updateprint(self, iterations):
+        for i in range(iterations):
+            self.update()
+            self.printdata()
+
+    def distance(self):
+        a = (self.dleftright, self.dupdown)
+        b = (self.pleftright, self.pupdown)
+        if self.pleftright == float('inf') or self.pupdown == float('inf') or self.pleftright == float(
+                'nan') or self.pupdown == float('nan'):
+            return float('inf')
+        if self.pleftright == float('-inf') or self.pupdown == float('-inf') or self.pleftright == float(
+                'nan') or self.pupdown == float('nan'):
+            return float('inf')
+        if math.isnan(self.pleftright) or math.isnan(self.pupdown):
+            return float('inf')
+
+        dst = distance.euclidean(a, b)
+        return dst
+
+    def setw(self, x):
+        WW = self.model.get_weights()
+        f = []
+        l = []
+        a = np.array(
+            [(x[0], x[1], x[2]),
+             (x[3], x[4], x[5]),
+             (x[6], x[7], x[8]),
+             (x[9], x[10], x[11]),
+             (x[12], x[13], x[14]),
+             (x[15], x[16], x[17]),
+             ])  # weights
+        a = np.transpose(a)
+        b = np.array([0, 0, 0, 0, 0, 0])  # array of biases
+        l.append(a)
+        l.append(b)
+        f.append(a)
+        f.append(b)
+        self.model.layers[0].set_weights(l)
+        del l
+        del a
+        del b
+
+        f = []
+        l = []
+        a = np.array(
+            [(x[18], x[19], x[20], x[21], x[22], x[23]),
+             (x[24], x[25], x[26], x[27], x[28], x[29]),
+             (x[30], x[31], x[32], x[33], x[34], x[35]),
+             (x[36], x[37], x[38], x[39], x[40], x[41]),
+             ])  # weights
+        a = np.transpose(a)
+        b = np.array([0, 0, 0, 0])  # array of biases
+        l.append(a)
+        l.append(b)
+        f.append(a)
+        f.append(b)
+        self.model.layers[1].set_weights(l)
+        del l
+        del a
+        del b
+
+        f = []
+        l = []
+        a = np.array(
+            [(x[42], x[43], x[44], x[45]),
+             (x[46], x[47], x[48], x[49])
+             ])  # weights
+        a = np.transpose(a)
+        b = np.array([0, 0])  # array of biases
+        l.append(a)
+        l.append(b)
+        f.append(a)
+        f.append(b)
+        self.model.layers[2].set_weights(l)
+        del l
+        del a
+        del b
+
+    def reset(self):
+        self.vupdown = 0
+        self.vleftright = 0
+        self.pupdown = 0
+        self.pleftright = 0
+
+    def setpos(self, x, y):
+        self.pleftright = x
+        self.updown = y
+
+    def settarget(self, x, y):
+        self.dleftright = x
+        self.dpdown = y
+
+    def accelconv(self, a):
+        number = 0
+        if abs(a) == 0:
+            number = 0
+        elif a < 0:
+            number = -1 * math.log(abs(a), 10)
+        elif a > 0:
+            number = math.log(a, 10)
+        return number
+
+
+def fit(x):
+    global nu
+    nu.reset()
+    nu.setw(x)
+
+    total = 0
+
+    nu.reset()
+    nu.setpos(0, 0)
+    nu.settarget(0, 0)
+    temp = nu.updateiter(40)
+    total = total + abs(nu.dleftright - nu.pleftright) + temp
+
+    nu.reset()
+    nu.setpos(0, 0)
+    nu.settarget(100, 100)
+    temp = nu.updateiter(40)
+    total = total + abs(nu.dleftright - nu.pleftright) + temp
+
+    nu.reset()
+    nu.setpos(0, 0)
+    nu.settarget(-100, -100)
+    temp = nu.updateiter(40)
+    total = total + abs(nu.dleftright - nu.pleftright) + temp
+
+    nu.reset()
+    nu.setpos(10, 10)
+    nu.settarget(-100, -100)
+    temp = nu.updateiter(40)
+    total = total + abs(nu.dleftright - nu.pleftright) + temp
+
+    nu.reset()
+    nu.setpos(100, 100)
+    nu.settarget(0, 0)
+    temp = nu.updateiter(40)
+    total = total + abs(nu.dleftright - nu.pleftright) + temp
+
+    nu.reset()
+    nu.setpos(100, 100)
+    nu.settarget(100, 100)
+    temp = nu.updateiter(40)
+    total = total + abs(nu.dleftright - nu.pleftright) + temp
+
+    nu.reset()
+    nu.setpos(-100, -100)
+    nu.settarget(-100, -100)
+    temp = nu.updateiter(40)
+    total = total + abs(nu.dleftright - nu.pleftright) + temp
+
+    nu.reset()
+    nu.setpos(-100, -100)
+    nu.settarget(0, 0)
+    temp = nu.updateiter(40)
+    total = total + abs(nu.dleftright - nu.pleftright) + temp
+
+    nu.reset()
+    nu.setpos(-100, -100)
+    nu.settarget(100, 100)
+    temp = nu.updateiter(40)
+    total = total + abs(nu.dleftright - nu.pleftright) + temp
+
+    total = total / 9
+
+    return total
+
+
+nu = Ship(44, 210)
+
+up = 1
+Lo = -1
+# normal
+# bounds = [(-1, 1), (-1, 1), (-1, 1), (-1, 1), (-1, 1), (-1, 1), (-1, 1), (-1, 1), (-1, 1),(-1, 1),(-1, 1),(-1, 1),(-1, 1),(-1, 1),(-1, 1),(-1, 1)]
+bounds = [
+    (Lo, up), (Lo, up), (Lo, up), (Lo, up), (Lo, up), (Lo, up), (Lo, up), (Lo, up),
+    (Lo, up), (Lo, up), (Lo, up), (Lo, up), (Lo, up), (Lo, up), (Lo, up), (Lo, up),
+    (Lo, up), (Lo, up), (Lo, up), (Lo, up), (Lo, up), (Lo, up), (Lo, up), (Lo, up),
+    (Lo, up), (Lo, up), (Lo, up), (Lo, up), (Lo, up), (Lo, up), (Lo, up), (Lo, up),
+    (Lo, up), (Lo, up), (Lo, up), (Lo, up), (Lo, up), (Lo, up), (Lo, up), (Lo, up),
+    (Lo, up), (Lo, up), (Lo, up), (Lo, up), (Lo, up), (Lo, up), (Lo, up), (Lo, up),
+    (Lo, up), (Lo, up), (Lo, up), (Lo, up), (Lo, up), (Lo, up)
+]
+
+weights = ([0.51244765, -0.36903907, -0.18376281, -0.43693906, 0.89287322,
+            0.43054703, 0.64862996, -0.95831933, 0.7459992, 0.37772171,
+            0.01220787, -0.44715372, -0.18918046, -0.19498613, 0.30597956,
+            0.99390322, -0.5628981, 0.67094926, 0.8295543, 0.63008104,
+            -0.35233278, 0.84383021, -0.43871817, 0.58252824, -0.4480228,
+            0.04138603, -0.62723666, -0.35665044, 0.25255964, -0.11343231,
+            -0.22112223, 0.9137581, -0.43956589, -0.24846947, 0.92072728,
+            -0.06975512, 0.66475756, 0.31181831, 0.257301, -0.88948763,
+            0.44793522, -0.33685222, -0.10459129, -0.13980078, -0.2437661,
+            0.53345982, 0.1159296, -0.54941172, -0.02270301, 0.18985398,
+            -0.19178831, 0.34557801, -0.81860877, -0.60863851])
+nu.setw(weights)
+# print(differential_evolution(fit, bounds, maxiter=300, polish=False, strategy='best1bin', popsize=2))
+nu.reset()
+nu.setw(weights)
+nu.setpos(0, 0)
+nu.settarget(10, 0)
+nu.updateprint(1000)
+pointless = 1
